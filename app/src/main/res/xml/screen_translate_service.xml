@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Optional fallback only.
+
+    The Xposed hooks are the real mechanism and they do not need this. An accessibility service
+    can read on-screen text but cannot rewrite it in place, so this exists purely to support the
+    overlay mode for the rare app that resists hooking (heavily obfuscated custom text rendering,
+    or a game drawing straight to a Canvas). It stays off unless the user enables it in Settings.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_description"
+    android:notificationTimeout="300" />

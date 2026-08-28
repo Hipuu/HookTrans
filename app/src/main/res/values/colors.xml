@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Material 3 baseline scheme, generated from a single blue seed.
+
+    On Android 12+ these are replaced at runtime by the wallpaper-derived palette
+    (DynamicColors in App.onCreate). They are the fallback for Android 8–11 and for users who
+    have dynamic colour switched off, so the full set of roles is defined rather than a couple
+    of brand colours — otherwise M3 components fall back to their own defaults and the app
+    ends up two-toned.
+-->
+<resources>
+    <color name="seed">#2D6CDF</color>
+
+    <!-- Primary -->
+    <color name="md_theme_primary">#255FA8</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#D3E4FF</color>
+    <color name="md_theme_onPrimaryContainer">#001C38</color>
+
+    <!-- Secondary -->
+    <color name="md_theme_secondary">#545F70</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#D8E3F8</color>
+    <color name="md_theme_onSecondaryContainer">#111C2B</color>
+
+    <!-- Tertiary -->
+    <color name="md_theme_tertiary">#6C5677</color>
+    <color name="md_theme_onTertiary">#FFFFFF</color>
+    <color name="md_theme_tertiaryContainer">#F5D9FF</color>
+    <color name="md_theme_onTertiaryContainer">#261431</color>
+
+    <!-- Error -->
+    <color name="md_theme_error">#BA1A1A</color>
+    <color name="md_theme_onError">#FFFFFF</color>
+    <color name="md_theme_errorContainer">#FFDAD6</color>
+    <color name="md_theme_onErrorContainer">#410002</color>
+
+    <!-- Surfaces -->
+    <color name="md_theme_background">#FDFCFF</color>
+    <color name="md_theme_onBackground">#1A1C1E</color>
+    <color name="md_theme_surface">#FDFCFF</color>
+    <color name="md_theme_onSurface">#1A1C1E</color>
+    <color name="md_theme_surfaceVariant">#DFE2EB</color>
+    <color name="md_theme_onSurfaceVariant">#43474E</color>
+    <color name="md_theme_surfaceContainerLowest">#FFFFFF</color>
+    <color name="md_theme_surfaceContainerLow">#F7F9FC</color>
+    <color name="md_theme_surfaceContainer">#F1F3F7</color>
+    <color name="md_theme_surfaceContainerHigh">#EBEEF2</color>
+    <color name="md_theme_surfaceContainerHighest">#E5E8EC</color>
+    <color name="md_theme_outline">#73777F</color>
+    <color name="md_theme_outlineVariant">#C3C7CF</color>
+    <color name="md_theme_inverseSurface">#2F3033</color>
+    <color name="md_theme_inverseOnSurface">#F1F0F4</color>
+    <color name="md_theme_inversePrimary">#A4C9FF</color>
+
+    <color name="ic_launcher_background">#255FA8</color>
+</resources>

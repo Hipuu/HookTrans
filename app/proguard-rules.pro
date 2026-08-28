@@ -1,0 +1,4 @@
+-keep class io.hooktrans.xposed.** { *; }
+-keep class io.hooktrans.ipc.** { *; }
+-keep class de.robv.android.xposed.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

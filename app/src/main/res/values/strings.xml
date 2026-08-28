@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HookTrans</string>
+    <string name="module_description">Translates the text of other apps in place, including text that loads while you use them. Display-only, so app logic keeps seeing the original strings.</string>
+
+    <!-- Service / notification -->
+    <string name="channel_engine">Translation engine</string>
+    <string name="engine_running">HookTrans engine</string>
+    <string name="engine_running_sub">Serving translations to hooked apps</string>
+    <string name="accessibility_label">HookTrans screen translation</string>
+    <string name="accessibility_description">Optional fallback that reads on-screen text when an app cannot be hooked. Not required for the Xposed module.</string>
+
+    <!-- Status card -->
+    <string name="status_active">Module active</string>
+    <string name="status_inactive">Module not active</string>
+    <string name="status_active_sub">%1$s is loading the module. Pick apps below and reboot or force-stop them to apply.</string>
+    <string name="status_inactive_sub">Enable HookTrans in LSPosed (or your Xposed manager), tick the apps you want, then reboot.</string>
+
+    <!-- Main screen -->
+    <string name="master_enable">Enable translation</string>
+    <string name="section_languages">Languages</string>
+    <string name="section_engine">Engine</string>
+    <string name="section_scope">Apps</string>
+    <string name="section_coverage">What to translate</string>
+    <string name="section_safety">Safety</string>
+    <string name="section_advanced">Advanced</string>
+
+    <string name="label_source_lang">Translate from</string>
+    <string name="label_target_lang">Translate to</string>
+    <string name="label_engine">Translation engine</string>
+    <string name="label_endpoint">Server URL</string>
+    <string name="label_api_key">API key</string>
+    <string name="hint_endpoint">https://libretranslate.example.com</string>
+    <string name="hint_api_key">Paste your key</string>
+
+    <string name="title_app_scope">Select apps</string>
+    <string name="scope_all_apps">Translate every app in the LSPosed scope</string>
+    <string name="scope_all_apps_sub">When off, only the apps you pick below are translated.</string>
+    <string name="pick_apps">Pick apps…</string>
+    <plurals name="apps_selected">
+        <item quantity="one">%d app selected</item>
+        <item quantity="other">%d apps selected</item>
+    </plurals>
+
+    <string name="hook_textviews">Standard views (TextView, buttons, labels)</string>
+    <string name="hook_hints">Input hints and placeholders</string>
+    <string name="hook_webviews">Web content (WebView)</string>
+    <string name="hook_compose">Jetpack Compose text</string>
+    <string name="hook_canvas">Text apps draw themselves (tab bars, badges)</string>
+    <string name="hook_canvas_sub">Reaches labels painted straight to the screen, which no other hook can see. Safe for app logic, but it runs on every frame, so turn it on for apps whose chrome stays untranslated.</string>
+    <string name="hook_resources">Strings from resources (aggressive)</string>
+    <string name="hook_resources_sub">Catches menus and notification text that the view hooks miss. Riskier: strings.xml can hold URLs and keys. Turn on per app if something stays untranslated.</string>
+    <string name="hook_images">Text inside images (screenshots, signs, memes)</string>
+    <string name="hook_images_sub">Reads every image on screen and paints the translation over it. Your images are never modified — apps still see the original. The most expensive option here: recognition runs on avatars and icons too, and it shows on battery.</string>
+    <string name="overlay_show_original">Keep the original visible under image text</string>
+    <string name="overlay_show_original_sub">Draws the translation just below the original line instead of covering it, so you can check what was actually read.</string>
+    <string name="prefetch_parsed">Translate everything loaded, not just what is on screen</string>
+    <string name="prefetch_parsed_sub">Translates text as the app receives it, so comments and replies still below the fold are already done when you scroll to them. The app\'s own data is never altered. Uses more memory and translation volume.</string>
+
+    <string name="max_compat">Maximum compatibility mode</string>
+    <string name="max_compat_sub">Only translate multi-word text and never touch styled text. Fewer strings translated, lowest chance of upsetting an app.</string>
+    <string name="skip_linked">Leave links and tappable text alone</string>
+    <string name="skip_linked_sub">Text carrying links is skipped, because span offsets point into the original string.</string>
+    <string name="translate_selectable">Translate selectable text</string>
+    <string name="translate_selectable_sub">Selectable text cannot use the display-only path, so this replaces the real text and the app will see the translation. Copying yields the translation too.</string>
+
+    <string name="label_min_chars">Shortest text to translate</string>
+    <string name="label_max_chars">Longest text to translate</string>
+    <string name="label_exclude_ids">Never translate views whose id contains</string>
+    <string name="hint_exclude_ids">price, code, username</string>
+    <string name="label_never_translate">Never translate these exact strings</string>
+    <string name="hint_never_translate">One per line</string>
+    <string name="log_verbose">Verbose logging</string>
+    <string name="log_verbose_sub">Writes detail to the Xposed log. Leave off unless diagnosing.</string>
+
+    <!-- Actions -->
+    <string name="action_save">Save</string>
+    <string name="action_self_test">Test engine</string>
+    <string name="action_download_model">Download offline model</string>
+    <string name="action_clear_cache">Clear translation cache</string>
+    <string name="action_search">Search</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_clear_all">Clear all</string>
+    <string name="action_show_system">Show system apps</string>
+    <string name="action_done">Done</string>
+
+    <string name="saved">Saved. Force-stop a translated app for changes to take effect.</string>
+    <string name="cache_cleared">Translation cache cleared</string>
+    <string name="testing">Testing…</string>
+    <string name="test_result">Engine says: %1$s</string>
+    <string name="engine_unreachable">Engine process unreachable. Open the app once and retry.</string>
+    <plurals name="cache_size">
+        <item quantity="one">%1$d translation cached</item>
+        <item quantity="other">%1$d translations cached</item>
+    </plurals>
+    <string name="loading_apps">Loading apps…</string>
+
+    <!-- App picker -->
+    <string name="filter_selected">Selected only</string>
+    <string name="no_apps_match">No apps match</string>
+    <string name="per_app_language">Language for %1$s</string>
+    <string name="lang_default">Default (%1$s)</string>
+    <string name="action_set_language">Set language…</string>
+    <string name="confirm_clear_cache">Delete every stored translation? Text will be fetched again the next time it appears.</string>
+</resources>

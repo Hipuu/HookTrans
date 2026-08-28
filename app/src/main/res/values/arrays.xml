@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Scope suggestion for LSPosed. "android" is the system server: the module uses it for a
+        single package-visibility exemption so hooked apps can reach the translation engine.
+        Everything else is deliberately left to the user, since the whole point of the module is
+        that you choose which apps get translated.
+    -->
+    <string-array name="xposed_scope">
+        <item>android</item>
+        <item>io.hooktrans</item>
+    </string-array>
+</resources>
