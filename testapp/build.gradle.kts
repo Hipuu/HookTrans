@@ -5,6 +5,20 @@ plugins {
 }
 
 /*
+ * local.properties is not part of Gradle's project property set (only gradle.properties is),
+ * so it has to be read explicitly. Precedence: -P/gradle.properties, then local.properties,
+ * then the environment (what CI uses).
+ */
+val signingProps = java.util.Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
+}
+fun signingProp(name: String): String =
+    (project.findProperty(name) as? String)
+        ?: signingProps.getProperty(name)
+        ?: System.getenv(name)
+        ?: ""
+
+/*
  * A target for the module to translate.
  *
  * This is not a demo. Its job is to *verify* the guarantee the module is built around: that
@@ -31,9 +45,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("../keystore/hooktrans.jks")
-            storePassword = project.findProperty("HOOKTRANS_STORE_PASSWORD") as? String ?: ""
-            keyAlias = project.findProperty("HOOKTRANS_KEY_ALIAS") as? String ?: ""
-            keyPassword = project.findProperty("HOOKTRANS_KEY_PASSWORD") as? String ?: ""
+            storePassword = signingProp("HOOKTRANS_STORE_PASSWORD")
+            keyAlias = signingProp("HOOKTRANS_KEY_ALIAS")
+            keyPassword = signingProp("HOOKTRANS_KEY_PASSWORD")
         }
     }
 
