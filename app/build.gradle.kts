@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,14 +10,14 @@ plugins {
  * so it has to be read explicitly. Precedence: -P/gradle.properties, then local.properties,
  * then the environment (what CI uses).
  */
-val signingProps = java.util.Properties().apply {
+val signingProps = Properties().apply {
     rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
 }
-fun signingProp(name: String): String =
-    (project.findProperty(name) as? String)
-        ?: signingProps.getProperty(name)
-        ?: System.getenv(name)
-        ?: ""
+fun signingProp(name: String): String {
+    (project.findProperty(name) as? String)?.let { return it }
+    signingProps.getProperty(name)?.let { return it }
+    return System.getenv(name) ?: ""
+}
 
 android {
     namespace = "io.hooktrans"
