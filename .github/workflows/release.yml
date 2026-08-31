@@ -44,13 +44,20 @@ jobs:
         run: echo "${{ secrets.HOOKTRANS_KEYSTORE }}" | base64 -d > keystore/hooktrans.jks
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease :testapp:assembleRelease --no-daemon
 
       - name: Collect APKs
         run: |
           mkdir -p release-apks
           find app/build/outputs/apk/release -name '*.apk' -exec cp {} release-apks/ \;
           ls -lh release-apks/
+
+      - name: Upload testapp (development harness, not shipped)
+        uses: actions/upload-artifact@v4
+        with:
+          name: testapp
+          path: testapp/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
