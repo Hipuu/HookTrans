@@ -64,6 +64,10 @@ object HostBridge {
     @Volatile
     private var lastBindTry = 0L
 
+    /** True between a bindService() call and its connection (or failure) callback. */
+    @Volatile
+    private var bindInFlight = false
+
     @Volatile
     private var directEngine: TranslationEngine? = null
 
@@ -247,6 +251,13 @@ object HostBridge {
     }
 
     /**
+     * How long a batch waits for a bind that is already being established before giving up and
+     * using the in-process engine. Longer than a warm bind ever takes, shorter than the network
+     * fallback a wait that expires is trying to beat.
+     */
+    private const val BIND_WAIT_MS = 2_000L
+
+    /**
      * Comfortably longer than the engine's own per-batch budget, so this only ever fires for a
      * batch that is genuinely never coming back.
      */
@@ -386,7 +397,16 @@ object HostBridge {
             return
         }
 
-        val svc = ensureService()
+        var svc = ensureService()
+        if (svc == null && bindInFlight) {
+            // A bind is being established right now. The engine process answers in tens of
+            // milliseconds when warm, while the fallback below is a full HTTPS round trip
+            // (seconds) whose results the engine will not share — so a bounded wait here is the
+            // cheaper path on every start where the engine process is merely a step behind.
+            // Bounded, so a genuinely stuck bind still reaches the fallback.
+            awaitBinder(BIND_WAIT_MS)
+            svc = ensureService()
+        }
         if (svc != null) {
             // Cheap cache probe first: the engine process may already know these.
             val cached = try {
@@ -564,6 +584,11 @@ object HostBridge {
      */
     fun regionsFor(bitmap: Bitmap, onReady: () -> Unit): Recognized? {
         return try {
+            // Video and animation surfaces produce fresh pixels faster than recognition can
+            // finish: every frame is a new content hash, so nothing is ever cached and the
+            // engine process pays a full OCR job (plus a binder bitmap copy) tens of times a
+            // second for results that are stale on arrival. Detect the churn and stop reading.
+            if (isChurning(bitmap)) return null
             val print = fingerprint(bitmap)
             val key = fingerprints[print]
             if (key != null) return regions[key]
@@ -575,6 +600,54 @@ object HostBridge {
             null
         }
     }
+
+    /**
+     * True when this Bitmap object's pixels keep changing faster than OCR is useful.
+     *
+     * The signal is `generationId` on a constant object identity: a static image is drawn many
+     * times but mutated never, while a video frame or animated banner mutates before the
+     * previous recognition even lands. Three changes inside two seconds is far past anything a
+     * photograph does, so the surface is banned from recognition for a while — long enough that
+     * a video costs a handful of jobs per minute instead of tens per second. When the ban
+     * expires the next draw reads it once more, so a surface that genuinely settles (a paused
+     * video, a finished animation) is recognised instead of skipped forever.
+     */
+    private fun isChurning(bitmap: Bitmap): Boolean {
+        val identity = System.identityHashCode(bitmap)
+        val gen = bitmap.generationId.toLong()
+        val now = SystemClock.elapsedRealtime()
+        synchronized(imageLock) {
+            // Entries are tiny and identities are recycled constantly; a wholesale reset when
+            // the map runs large is cheaper and simpler than tracking eviction order.
+            if (churn.size > CHURN_MAP_MAX) churn.clear()
+            val c = churn[identity]
+            if (c == null) {
+                churn[identity] = Churn(gen, 0, now, 0L)
+                return false
+            }
+            if (now < c.bannedUntil) return true
+            if (c.gen != gen) {
+                c.gen = gen
+                if (now - c.windowStart > CHURN_WINDOW_MS) {
+                    c.windowStart = now
+                    c.changes = 0
+                }
+                c.changes++
+                if (c.changes >= CHURN_CHANGES) c.bannedUntil = now + CHURN_BAN_MS
+            }
+            return false
+        }
+    }
+
+    /** Generation-change tracker for one Bitmap object. Guarded by [imageLock]. */
+    private class Churn(var gen: Long, var changes: Int, var windowStart: Long, var bannedUntil: Long)
+
+    private val churn = HashMap<Int, Churn>()
+
+    private const val CHURN_WINDOW_MS = 2_000L
+    private const val CHURN_CHANGES = 3
+    private const val CHURN_BAN_MS = 10_000L
+    private const val CHURN_MAP_MAX = 2_000
 
     /**
      * Identity and generation packed into one long. Identity alone would be wrong: apps reuse
@@ -792,6 +865,7 @@ object HostBridge {
             }
             val bound = ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE or Context.BIND_WAIVE_PRIORITY)
             if (!bound) Logs.d("bindService refused; falling back to in-process translation")
+            else bindInFlight = true
             null // the binder arrives asynchronously; this drain uses the fallback
         } catch (t: Throwable) {
             Logs.d("bindService threw: ${t.message}")
@@ -799,9 +873,24 @@ object HostBridge {
         }
     }
 
+    /**
+     * Blocks the worker until the pending bind resolves or [ms] elapses.
+     *
+     * Only ever called from the worker thread, which owns nothing the connection callback
+     * (delivered on the app's main thread) needs: [service] and [bindInFlight] are volatile, so
+     * the poll sees the answer the moment it is published.
+     */
+    private fun awaitBinder(ms: Long) {
+        val deadline = SystemClock.elapsedRealtime() + ms
+        while (bindInFlight && service == null && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(10)
+        }
+    }
+
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = ITranslator.Stub.asInterface(binder)
+            bindInFlight = false
             Logs.d("engine connected in ${context?.packageName}")
             // onServiceConnected runs on the host app's main thread, and configFor is a
             // synchronous binder call into another process that may still be cold-starting.
@@ -829,10 +918,12 @@ object HostBridge {
         override fun onBindingDied(name: ComponentName?) {
             service = null
             bindAttempted = false
+            bindInFlight = false
         }
 
         override fun onNullBinding(name: ComponentName?) {
             service = null
+            bindInFlight = false
         }
     }
 

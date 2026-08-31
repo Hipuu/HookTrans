@@ -106,6 +106,10 @@ class MainActivity : AppCompatActivity() {
             text = "Open WebView screen"
             setOnClickListener { startActivity(Intent(this@MainActivity, WebActivity::class.java)) }
         })
+        root.addView(Button(this).apply {
+            text = "Open churn screen (video frames)"
+            setOnClickListener { startActivity(Intent(this@MainActivity, ChurnActivity::class.java)) }
+        })
 
         setContentView(ScrollView(this).apply {
             addView(root, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

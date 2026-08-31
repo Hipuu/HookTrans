@@ -25,5 +25,9 @@
         <activity
             android:name=".WebActivity"
             android:exported="true" />
+
+        <activity
+            android:name=".ChurnActivity"
+            android:exported="true" />
     </application>
 </manifest>
