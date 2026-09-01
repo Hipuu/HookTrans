@@ -4,7 +4,6 @@ import android.app.Application
 import com.google.android.material.color.DynamicColors
 import io.hooktrans.core.Logs
 import io.hooktrans.core.Prefs
-import io.hooktrans.service.TranslatorService
 
 class App : Application() {
     override fun onCreate() {
@@ -15,6 +14,5 @@ class App : Application() {
 
         val cfg = Prefs.load(this)
         Logs.verbose = cfg.logVerbose
-        if (cfg.enabled) TranslatorService.start(this)
     }
 }

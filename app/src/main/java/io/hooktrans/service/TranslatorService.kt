@@ -58,7 +58,11 @@ class TranslatorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundSafely()
-        return START_STICKY
+        // NOT_STICKY on purpose: the engine is an on-demand process. It exists while a hooked
+        // app holds a binding and dies with the last one; if the system kills it, the next
+        // bind recreates it. STICKY here would resurrect it forever, which is exactly the
+        // always-in-background behaviour this build removed.
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
