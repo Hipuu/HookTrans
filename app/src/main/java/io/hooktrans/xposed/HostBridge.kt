@@ -37,7 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * one, without ever blocking the app.
  *
  * Design rules, in priority order:
- *   1. Never block a caller thread. Lookups are a hash map hit or nothing.
+ *   1. Never block a caller thread on IPC or the network. Text lookups are a hash map hit or
+ *      nothing. An image miss is the one exception: the caller's pixels are copied before it
+ *      returns, because a foreign bitmap must never outlive the draw it arrived in.
  *   2. Never throw into the host. Every public entry point swallows.
  *   3. Prefer the module's own :engine process over doing work here. The in-process HTTP
  *      path exists only for the case where binding is not possible.
@@ -594,7 +596,34 @@ object HostBridge {
             if (key != null) return regions[key]
 
             synchronized(imageLock) { if (!hashInFlight.add(print)) return null }
-            worker.post { safe { hashAndSubmit(print, bitmap, onReady) } }
+
+            // Copy the pixels NOW, on the drawing thread, before the hook returns. Everything
+            // downstream works on the module-owned copy; the app's object is never retained.
+            //
+            // The reason this is worth a full-size copy per unseen bitmap is the crash it
+            // replaces. Handing the app's bitmap to the worker held it across an unbounded
+            // delay, during which the app (or, in system_server, the framework itself) was
+            // free to recycle it — and a draw on a recycled bitmap is a native
+            // LOG_ALWAYS_FATAL in CanvasJNI ("cannot access an invalid/free'd bitmap"), which
+            // no try/catch can intercept: it took down system_server. The recycled() check
+            // could not close that window because it is a check-then-act against an object
+            // another thread may free a microsecond later. Copying inside the hook closes it:
+            // the drawing thread cannot be recycling this bitmap while it is inside its own
+            // drawBitmap call, so the copy is safe by construction and everything after it
+            // touches only bitmap this module owns.
+            val snapshot = try {
+                downscale(bitmap)
+            } catch (t: Throwable) {
+                // Hardware-locked pixels, or a bitmap recycled from another thread inside the
+                // copy's own microsecond window. Nothing can be done with it this frame.
+                Logs.d("cannot read bitmap for ocr: ${t.message}")
+                null
+            }
+            if (snapshot == null) {
+                synchronized(imageLock) { hashInFlight.remove(print) }
+                return null
+            }
+            worker.post { safe { hashAndSubmit(print, snapshot, onReady) } }
             null
         } catch (t: Throwable) {
             null
@@ -657,51 +686,51 @@ object HostBridge {
     private fun fingerprint(bitmap: Bitmap): Long =
         (System.identityHashCode(bitmap).toLong() shl 32) or (bitmap.generationId.toLong() and 0xFFFF_FFFFL)
 
-    private fun hashAndSubmit(print: Long, bitmap: Bitmap, onReady: () -> Unit) {
-        val scaled = try {
-            downscale(bitmap)
-        } catch (t: Throwable) {
-            // The app may have recycled it between the draw and this post, or it may be a
-            // hardware bitmap on a device that refuses to hand back its pixels.
-            Logs.d("cannot read bitmap for ocr: ${t.message}")
-            null
-        }
-        if (scaled == null) {
+    /**
+     * Hashes and submits a module-owned snapshot produced by [regionsFor].
+     *
+     * Everything here touches the caller's bitmap object, which was copied before the post:
+     * the snapshot belongs to this thread alone, so a recycler elsewhere can never reach it.
+     * Takes ownership of [snapshot] and recycles it on every path.
+     */
+    private fun hashAndSubmit(print: Long, snapshot: Bitmap, onReady: () -> Unit) {
+        try {
+            val key = contentHash(snapshot)
+            fingerprints[print] = key
             synchronized(imageLock) { hashInFlight.remove(print) }
-            return
-        }
 
-        val key = contentHash(scaled)
-        fingerprints[print] = key
-        synchronized(imageLock) { hashInFlight.remove(print) }
+            // A different Bitmap object holding pixels we have already read. Common: image
+            // loaders decode the same avatar once per list binding.
+            regions[key]?.let {
+                if (it.regions.isNotEmpty()) main.post { safe { onReady() } }
+                return
+            }
 
-        // A different Bitmap object holding pixels we have already read. Common: image loaders
-        // decode the same avatar once per list binding.
-        regions[key]?.let {
-            scaled.recycle()
-            if (it.regions.isNotEmpty()) main.post { safe { onReady() } }
-            return
-        }
+            val cooling = ocrCooldown[key]
+            if (cooling != null && SystemClock.elapsedRealtime() - cooling < COOLDOWN_MS) return
 
-        val cooling = ocrCooldown[key]
-        if (cooling != null && SystemClock.elapsedRealtime() - cooling < COOLDOWN_MS) {
-            scaled.recycle()
-            return
+            val submit: Boolean
+            synchronized(imageLock) {
+                ocrWaiters.getOrPut(key) { ArrayList(2) }.add(onReady)
+                submit = ocrInFlight.add(key)
+            }
+            if (!submit) {
+                // Another draw already sent these exact pixels; this copy is redundant.
+                return
+            }
+            sendForRecognition(snapshot, key)
+        } finally {
+            runCatching { if (!snapshot.isRecycled) snapshot.recycle() }
         }
-
-        val submit: Boolean
-        synchronized(imageLock) {
-            ocrWaiters.getOrPut(key) { ArrayList(2) }.add(onReady)
-            submit = ocrInFlight.add(key)
-        }
-        if (!submit) {
-            // Another draw already sent these exact pixels; this copy is redundant.
-            scaled.recycle()
-            return
-        }
-        safe { sendForRecognition(scaled, key) }
     }
 
+    /**
+     * Sends a module-owned bitmap for recognition.
+     *
+     * [scaled] is always this module's own object (see [regionsFor]); the engine receives its
+     * own copy across the binder and this side's copy is released when the caller's finally
+     * recycles it. Ownership stays explicit: nothing here ever draws or retains a foreign one.
+     */
     private fun sendForRecognition(scaled: Bitmap, key: String) {
         val w = scaled.width
         val h = scaled.height
@@ -710,13 +739,11 @@ object HostBridge {
             // There is no in-process fallback for this the way there is for text: ML Kit's
             // native libraries are not loaded into a host app, so an image simply waits for
             // the engine process to come up and is retried the next time it is drawn.
-            scaled.recycle()
             imageFail(key, cooldown = false)
             return
         }
         val cached = runCatching { svc.ocrCached(key, dstLang) }.getOrElse { service = null; null }
         if (cached != null) {
-            scaled.recycle()
             deliverRegions(key, cached.toList(), w, h)
             return
         }
@@ -726,10 +753,6 @@ object HostBridge {
             svc.recognize(id, scaled, key, dstLang, context?.packageName ?: "?", ocrCallback)
             true
         }.getOrElse { service = null; false }
-        // The engine received its own copy across the binder and recycles that one itself; this
-        // side's copy has done its job either way. Not freeing it here would leak a full-size
-        // bitmap per distinct image in every hooked process.
-        scaled.recycle()
         if (!ok) {
             synchronized(imageLock) { ocrRequests.remove(id) }
             imageFail(key, cooldown = false)

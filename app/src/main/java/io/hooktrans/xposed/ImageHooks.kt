@@ -37,6 +37,9 @@ import io.hooktrans.ipc.TextRegion
  *  - **It runs on every bitmap that reaches the screen.** Avatars, icons and nine-patches
  *    included. That is the configured behaviour and it has a real battery cost; results are
  *    memoized by pixel content so the price is paid once per distinct image, not per frame.
+ *    The one synchronous cost is the pixel copy taken inside the draw hook — that copy is what
+ *    keeps the app's bitmap from being retained past its own draw (a recycled bitmap reaching a
+ *    later native draw is an uncatchable abort), and it happens once per unseen bitmap.
  */
 object ImageHooks {
 

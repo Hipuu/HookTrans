@@ -32,8 +32,14 @@ class HookEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
             when {
                 lpparam.packageName == Const.PKG -> installSelfHooks(lpparam)
 
-                lpparam.packageName == "android" && lpparam.processName == "android" ->
-                    SystemServerHooks.install(lpparam)
+                // The framework process. The processName check this condition once carried
+                // let app hooks leak into system_server on a ROM where the name differs:
+                // with the module set to translate everything in scope, ImageHooks then ran
+                // there, and a screenshot bitmap the system recycled while our worker still
+                // held it aborted the whole phone — a native LOG_ALWAYS_FATAL in CanvasJNI
+                // that no try/catch can intercept. system_server gets exactly one hook, the
+                // package-visibility exemption. Never anything that touches its objects.
+                lpparam.packageName == "android" -> SystemServerHooks.install(lpparam)
 
                 else -> installAppHooks(lpparam)
             }
